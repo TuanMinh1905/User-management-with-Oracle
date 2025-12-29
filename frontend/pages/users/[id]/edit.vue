@@ -10,7 +10,7 @@
       
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Employee ID -->
+          <!-- Employee ID (USERNAME) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Mã nhân viên <span class="text-red-500">*</span>
@@ -19,12 +19,14 @@
               v-model="form.employeeId" 
               type="text" 
               class="input"
-              placeholder="VD: IT001"
+              placeholder="VD: NV001"
               required
+              disabled
             />
+            <p class="text-xs text-gray-500 mt-1">Mã nhân viên không thể thay đổi</p>
           </div>
 
-          <!-- Full Name -->
+          <!-- Full Name (FULL_NAME) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Họ và tên <span class="text-red-500">*</span>
@@ -52,7 +54,7 @@
             />
           </div>
 
-          <!-- Phone -->
+          <!-- Phone (PHONE) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Số điện thoại
@@ -65,56 +67,16 @@
             />
           </div>
 
-          <!-- Position -->
-          <div>
+          <!-- Address (ADDRESS) -->
+          <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-2">
-              Vị trí <span class="text-red-500">*</span>
-            </label>
-            <select v-model="form.position" class="select" required>
-              <option value="">Chọn vị trí</option>
-              <option value="Developer">Developer</option>
-              <option value="Senior Developer">Senior Developer</option>
-              <option value="Tester">Tester</option>
-              <option value="DevOps">DevOps</option>
-              <option value="BA">BA</option>
-              <option value="Tech Lead">Tech Lead</option>
-              <option value="Project Manager">Project Manager</option>
-            </select>
-          </div>
-
-          <!-- Role -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Vai trò <span class="text-red-500">*</span>
-            </label>
-            <select v-model="form.role" class="select" required>
-              <option value="MEMBER">Nhân viên</option>
-              <option value="MANAGER">Quản lý</option>
-              <option value="ADMIN">Quản trị viên</option>
-            </select>
-          </div>
-
-          <!-- Status -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Trạng thái <span class="text-red-500">*</span>
-            </label>
-            <select v-model="form.status" class="select" required>
-              <option value="ACTIVE">Đang làm việc</option>
-              <option value="ON_LEAVE">Nghỉ phép</option>
-              <option value="INACTIVE">Nghỉ việc</option>
-            </select>
-          </div>
-
-          <!-- Join Date -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              Ngày vào làm
+              Địa chỉ
             </label>
             <input 
-              v-model="form.joinDate" 
-              type="date" 
+              v-model="form.address" 
+              type="text" 
               class="input"
+              placeholder="123 Đường ABC, Quận 1, TP.HCM"
             />
           </div>
         </div>
@@ -165,32 +127,27 @@ const loading = ref(false);
 const error = ref('');
 const user = computed(() => userStore.currentUser);
 
+// Chỉ có 5 trường theo Oracle: USERNAME, FULL_NAME, EMAIL, PHONE, ADDRESS
 const form = reactive<UserFormData>({
   employeeId: '',
   fullName: '',
   email: '',
   phone: '',
-  position: '',
-  role: 'MEMBER',
-  status: 'ACTIVE',
-  joinDate: '',
+  address: '',
 });
 
 const loadUser = async () => {
   pageLoading.value = true;
-  const id = parseInt(route.params.id as string);
+  const id = route.params.id as string;
   
-  if (!isNaN(id)) {
+  if (id) {
     const userData = await userStore.fetchUserById(id);
     if (userData) {
       form.employeeId = userData.employeeId;
       form.fullName = userData.fullName;
       form.email = userData.email;
       form.phone = userData.phone || '';
-      form.position = userData.position;
-      form.role = userData.role;
-      form.status = userData.status;
-      form.joinDate = userData.joinDate.split('T')[0];
+      form.address = userData.address || '';
     }
   }
   
@@ -202,7 +159,7 @@ const handleSubmit = async () => {
   loading.value = true;
   
   try {
-    const id = parseInt(route.params.id as string);
+    const id = route.params.id as string;
     await userStore.updateUser(id, form);
     router.push(`/users/${id}`);
   } catch (err: any) {

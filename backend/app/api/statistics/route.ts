@@ -1,32 +1,32 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getAllUserProfiles } from '@/lib/business-layer';
 
 // GET statistics
 export async function GET() {
   try {
-    const totalUsers = await prisma.user.count();
+    // Đảm bảo Oracle pool đã được khởi tạo
+    const { initializeOracle } = await import('@/lib/init-oracle');
+    await initializeOracle().catch(() => {
+      // Nếu đã khởi tạo rồi thì bỏ qua lỗi
+    });
+
+    const users = await getAllUserProfiles();
+
+    // Map Oracle data to statistics format
+    // Bảng chỉ có 5 cột: USERNAME, FULL_NAME, EMAIL, PHONE, ADDRESS
+    // Không có STATUS, ROLE, POSITION nên dùng default values
+    const totalUsers = users.length;
     
-    const activeUsers = await prisma.user.count({
-      where: { status: 'ACTIVE' },
-    });
+    // Tất cả users mặc định là ACTIVE (vì không có cột STATUS)
+    const activeUsers = users.length;
+    const inactiveUsers = 0;
+    const onLeaveUsers = 0;
 
-    const inactiveUsers = await prisma.user.count({
-      where: { status: 'INACTIVE' },
-    });
+    // Tất cả users mặc định là MEMBER (vì không có cột ROLE)
+    const usersByRole = [{ role: 'MEMBER', count: users.length }];
 
-    const onLeaveUsers = await prisma.user.count({
-      where: { status: 'ON_LEAVE' },
-    });
-
-    const usersByRole = await prisma.user.groupBy({
-      by: ['role'],
-      _count: { role: true },
-    });
-
-    const usersByPosition = await prisma.user.groupBy({
-      by: ['position'],
-      _count: { position: true },
-    });
+    // Tất cả users không có position (vì không có cột POSITION)
+    const usersByPosition = [{ position: '', count: users.length }];
 
     return NextResponse.json({
       success: true,
@@ -35,14 +35,8 @@ export async function GET() {
         active: activeUsers,
         inactive: inactiveUsers,
         onLeave: onLeaveUsers,
-        byRole: usersByRole.map(item => ({
-          role: item.role,
-          count: item._count.role,
-        })),
-        byPosition: usersByPosition.map(item => ({
-          position: item.position,
-          count: item._count.position,
-        })),
+        byRole: usersByRole,
+        byPosition: usersByPosition,
       },
     });
   } catch (error) {

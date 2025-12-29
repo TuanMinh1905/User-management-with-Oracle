@@ -52,7 +52,7 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    async fetchUserById(id: number) {
+    async fetchUserById(id: number | string) {
       this.loading = true;
       this.error = null;
       
@@ -101,7 +101,7 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    async updateUser(id: number, userData: Partial<UserFormData>) {
+    async updateUser(id: number | string, userData: Partial<UserFormData>) {
       this.loading = true;
       this.error = null;
       
@@ -130,7 +130,7 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    async deleteUser(id: number) {
+    async deleteUser(id: number | string) {
       this.loading = true;
       this.error = null;
       

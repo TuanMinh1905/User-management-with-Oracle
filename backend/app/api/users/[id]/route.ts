@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import {
+  getUserProfileByUsername,
+  updateUserProfile,
+  deleteUserProfile,
+  getAllUserProfiles,
+} from '@/lib/business-layer';
 
-// GET single user by ID
+// GET single user by ID (username)
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
+    const username = params.id;
 
-    if (isNaN(id)) {
+    if (!username) {
       return NextResponse.json(
         { success: false, error: 'Invalid user ID' },
         { status: 400 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id },
-    });
+    const user = await getUserProfileByUsername(username);
 
     if (!user) {
       return NextResponse.json(
@@ -27,7 +30,25 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: user });
+    // Map to frontend format (chỉ 5 cột: USERNAME, FULL_NAME, EMAIL, PHONE, ADDRESS)
+    const mappedUser = {
+      id: user.USERNAME,
+      employeeId: user.USERNAME,
+      fullName: user.FULL_NAME || '',
+      email: user.EMAIL || '',
+      phone: user.PHONE || null,
+      address: user.ADDRESS || null,
+      // Các field không có trong DB, set default
+      position: '',
+      role: 'MEMBER',
+      status: 'ACTIVE',
+      avatar: null,
+      joinDate: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json({ success: true, data: mappedUser });
   } catch (error) {
     console.error('Error fetching user:', error);
     return NextResponse.json(
@@ -43,19 +64,17 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
+    const username = params.id;
     const body = await request.json();
 
-    if (isNaN(id)) {
+    if (!username) {
       return NextResponse.json(
         { success: false, error: 'Invalid user ID' },
         { status: 400 }
       );
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-    });
+    const existingUser = await getUserProfileByUsername(username);
 
     if (!existingUser) {
       return NextResponse.json(
@@ -64,43 +83,56 @@ export async function PUT(
       );
     }
 
-    // Check if email or employeeId conflicts with other users
-    if (body.email || body.employeeId) {
-      const conflictUser = await prisma.user.findFirst({
-        where: {
-          AND: [
-            { id: { not: id } },
-            {
-              OR: [
-                body.email ? { email: body.email } : {},
-                body.employeeId ? { employeeId: body.employeeId } : {},
-              ].filter(obj => Object.keys(obj).length > 0),
-            },
-          ],
-        },
-      });
+    // Check if email conflicts with other users (if email is being updated)
+    if (body.email) {
+      const allUsers = await getAllUserProfiles();
+      const conflictUser = allUsers.find(
+        (u: any) => u.USERNAME !== username && u.EMAIL === body.email
+      );
 
       if (conflictUser) {
         return NextResponse.json(
-          { success: false, error: 'Employee ID or Email already exists' },
+          { success: false, error: 'Email already exists' },
           { status: 400 }
         );
       }
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: {
-        ...body,
-        joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
-      },
-    });
+    // Update user profile
+    const updateData: any = {};
+    if (body.fullName) updateData.full_name = body.fullName;
+    if (body.email) updateData.email = body.email;
+    if (body.phone !== undefined) updateData.phone = body.phone;
+    if (body.address !== undefined) updateData.address = body.address;
 
-    return NextResponse.json({ success: true, data: user });
-  } catch (error) {
+    await updateUserProfile(username, updateData);
+
+    // Fetch updated user
+    const updatedUser = await getUserProfileByUsername(username);
+
+    // Map to frontend format (chỉ 5 cột từ DB)
+    const mappedUser = {
+      id: updatedUser.USERNAME,
+      employeeId: updatedUser.USERNAME,
+      fullName: updatedUser.FULL_NAME || '',
+      email: updatedUser.EMAIL || '',
+      phone: updatedUser.PHONE || null,
+      address: updatedUser.ADDRESS || null,
+      // Các field không có trong DB, set default
+      position: '',
+      role: 'MEMBER',
+      status: 'ACTIVE',
+      avatar: null,
+      joinDate: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json({ success: true, data: mappedUser });
+  } catch (error: any) {
     console.error('Error updating user:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to update user' },
+      { success: false, error: error.message || 'Failed to update user' },
       { status: 500 }
     );
   }
@@ -112,18 +144,16 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
+    const username = params.id;
 
-    if (isNaN(id)) {
+    if (!username) {
       return NextResponse.json(
         { success: false, error: 'Invalid user ID' },
         { status: 400 }
       );
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-    });
+    const existingUser = await getUserProfileByUsername(username);
 
     if (!existingUser) {
       return NextResponse.json(
@@ -132,15 +162,13 @@ export async function DELETE(
       );
     }
 
-    await prisma.user.delete({
-      where: { id },
-    });
+    await deleteUserProfile(username);
 
     return NextResponse.json({ success: true, message: 'User deleted successfully' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting user:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to delete user' },
+      { success: false, error: error.message || 'Failed to delete user' },
       { status: 500 }
     );
   }

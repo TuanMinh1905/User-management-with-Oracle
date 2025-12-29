@@ -1,9 +1,11 @@
 export interface User {
-  id: number;
+  id: number | string; // Có thể là number hoặc string (username)
   employeeId: string;
   fullName: string;
   email: string;
   phone?: string;
+  address?: string; // Có trong Oracle DB
+  // Các field không có trong DB, chỉ để hiển thị
   position: string;
   role: 'ADMIN' | 'MANAGER' | 'MEMBER';
   status: 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
@@ -18,9 +20,11 @@ export interface UserFormData {
   fullName: string;
   email: string;
   phone?: string;
-  position: string;
-  role: 'ADMIN' | 'MANAGER' | 'MEMBER';
-  status: 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
+  address?: string; // Có trong Oracle DB
+  // Các field không có trong DB, optional
+  position?: string;
+  role?: 'ADMIN' | 'MANAGER' | 'MEMBER';
+  status?: 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
   avatar?: string;
   joinDate?: string;
 }
