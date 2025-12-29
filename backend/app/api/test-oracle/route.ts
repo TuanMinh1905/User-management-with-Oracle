@@ -1,55 +1,56 @@
 /**
- * API endpoint để test Oracle connection
- * GET /api/test-oracle
+ * API endpoint để test Oracle connection với user FirstTest
+ * GET /api/test-oracle - Lấy danh sách Employee
  */
 import { NextResponse } from 'next/server';
-import { initializeOracle } from '@/lib/init-oracle';
-import { executeQuery } from '@/lib/oracle';
+import oracledb from 'oracledb';
 
 export async function GET() {
+  let connection: oracledb.Connection | null = null;
+
   try {
-    // Khởi tạo Oracle pool
-    await initializeOracle();
-    
-    // Test query đơn giản
-    const result = await executeQuery('SELECT 1 as test FROM DUAL');
-    
-    // Test query table (nếu có)
-    let tableExists = false;
-    let userCount = 0;
-    try {
-      const tableResult = await executeQuery('SELECT COUNT(*) as CNT FROM APP_OWNER.APP_USER_PROFILE');
-      tableExists = true;
-      userCount = (tableResult.rows?.[0] as any)?.CNT || 0;
-    } catch (tableError: any) {
-      tableExists = false;
-      console.log('Table does not exist yet:', tableError.message);
-    }
+    // Kết nối với user FirstTest
+    connection = await oracledb.getConnection({
+      user: 'FirstTest',
+      password: 'firsttest',
+      connectString: 'localhost:1521/orclpdb.mshome.net',
+    });
+
+    console.log('✅ Connected to Oracle as FirstTest');
+
+    // Query bảng Employee
+    const result = await connection.execute(
+      'SELECT id, ten, email FROM Employee ORDER BY id',
+      [],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
 
     return NextResponse.json({
       success: true,
-      message: 'Oracle connection is working',
-      data: {
-        connection: 'OK',
-        testQuery: result.rows,
-        tableExists,
-        userCount,
-      },
+      message: 'Kết nối Oracle thành công!',
+      data: result.rows,
+      totalRows: result.rows?.length || 0,
     });
+
   } catch (error: any) {
-    console.error('Oracle test error:', error);
+    console.error('❌ Oracle connection error:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to connect to Oracle',
-        details: process.env.NODE_ENV === 'development' ? {
-          message: error.message,
-          errorNum: error.errorNum,
-          code: error.code,
-        } : undefined,
+        error: error.message,
+        errorCode: error.errorNum,
+        hint: 'Hãy chắc chắn đã tạo user FirstTest và bảng Employee trong Oracle',
       },
       { status: 500 }
     );
+  } finally {
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (err) {
+        console.error('Error closing connection:', err);
+      }
+    }
   }
 }
 
